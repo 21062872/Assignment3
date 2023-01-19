@@ -11,6 +11,9 @@ import os
 import seaborn as sb
 import scipy.stats as stats
 import scipy.optimize as opt
+import sklearn.cluster as cluster
+import sklearn.metrics as skmet
+from sklearn import preprocessing
 
 def exp_growth(t, scale, growth):
     '''
@@ -27,6 +30,38 @@ def logistics(t, scale, growth, t0):
     """
     f = scale / (1.0 + np.exp(-growth * (t - t0)))
     return f
+
+def err_ranges(x, func, param, sigma):
+    """
+    Calculates the upper and lower limits for the function, parameters and
+    sigmas for single value or array x. Functions values are calculated for 
+    all combinations of +/- sigma and the minimum and maximum is determined.
+    Can be used for all number of parameters and sigmas >=1.
+    
+    This routine can be used in assignment programs.
+    """
+
+    import itertools as iter
+    
+    # initiate arrays for lower and upper limits
+    lower = func(x, *param)
+    upper = lower
+    
+    uplow = []   # list to hold upper and lower limits for parameters
+    for p,s in zip(param, sigma):
+        pmin = p - s
+        pmax = p + s
+        uplow.append((pmin, pmax))
+        
+    pmix = list(iter.product(*uplow))
+    
+    for p in pmix:
+        y = func(x, *p)
+        lower = np.minimum(lower, y)
+        upper = np.maximum(upper, y)
+        
+    return lower, upper   
+
 
 def read_external_files(filename):
     '''
@@ -56,6 +91,48 @@ def read_external_files(filename):
     else:
         raise Exception("Invalid File Format")
     return df_climt_chg, df_climt_chg_tp
+
+def norm_df_sk(df):
+    '''
+    Normalize dataframe values
+
+    Parameters
+    ----------
+    df : dataframe object
+
+    Returns
+    -------
+    df_merged3_norm : normalized dataframe
+
+    '''
+    x = df_merged3.values #returns a numpy array
+    min_max_scaler = preprocessing.MinMaxScaler()
+    x_scaled = min_max_scaler.fit_transform(x)
+    df_merged3_norm = pd.DataFrame(x_scaled)
+    return df_merged3_norm
+
+def norm(df):
+    '''
+    Normalize dataframe values
+
+    Parameters
+    ----------
+    df : dataframe object
+
+    Returns
+    -------
+    df_merged3_norm : normalized dataframe
+
+    '''
+    min_val = np.min(df)
+    max_val = np.max(df)
+    df_merged3_norm = (df-min_val) / (max_val-min_val)
+    return df_merged3_norm
+
+def norm_df(df, first=0, last=None):
+    for col in df.columns[first:last]: # excluding the first column
+        df[col] = norm(df[col])
+    return df    
 
 #Executing the function to load external file to dataframe     
 df_climt_chg, df_climt_chg_tp = read_external_files('API_19_DS2_en_csv_v2_4773766.csv')  
@@ -149,6 +226,7 @@ print('Fit Parameter is : ', popt)
 # plot first fit attempt
 df_pop_growth_tp["pop_exp"] = exp_growth(df_pop_growth_tp["Year"], *popt)
 plt.figure()
+plt.style.use('ggplot')
 plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"], label="data")
 plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_exp"], label="fit")
 plt.legend()
@@ -189,7 +267,7 @@ plt.show()
 print('Fit Parameter (Logistic is) : ', popt)
 
 popt, covar = opt.curve_fit(logistics, df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"],
-p0=(57247586.0, 0.01, 1990), maxfev=5000)
+p0=(-1.17898243e+05, 0.01, 1990.0), maxfev=5000)
 print("Fit parameter", popt)
 df_pop_growth_tp["pop_log"] = logistics(df_pop_growth_tp["Year"], *popt)
 plt.figure()
@@ -201,3 +279,113 @@ plt.xlabel("year")
 plt.ylabel("population")
 plt.show()
 print('Fit Parameter (Logistic is) : ', popt)
+print('Covariance is ', covar)
+
+# extract the sigmas from the diagonal of the covariance matrix
+sigma = np.sqrt(np.diag(covar))
+print(sigma)
+low, up = err_ranges(df_pop_growth_tp["Year"], logistics, popt, sigma)
+plt.figure()
+plt.title("logistics functions")
+plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"], label="data")
+plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_log"], label="fit")
+plt.fill_between(df_pop_growth_tp["Year"], low, up, alpha=0.7)
+plt.legend()
+plt.xlabel("year")
+plt.ylabel("population")
+plt.show()
+
+#Giving ranges for predictions
+print("Forcasted population")
+low, up = err_ranges(2030, logistics, popt, sigma)
+print("2030 between ", low, "and", up)
+low, up = err_ranges(2040, logistics, popt, sigma)
+print("2040 between ", low, "and", up)
+low, up = err_ranges(2050, logistics, popt, sigma)
+print("2050 between ", low, "and", up)
+
+#Clustering
+indecators_class = ['Population, total', 'CO2 emissions (kg per PPP $ of GDP)', 'Electric power consumption (kWh per capita)', 'Mortality rate, under-5 (per 1,000 live births)']
+df_classif_pop = df_cntry_yrs[df_cntry_yrs['Indicator Name']=='Population, total']
+df_classif_co2 = df_cntry_yrs[df_cntry_yrs['Indicator Name']=='CO2 emissions (kg per PPP $ of GDP)']
+df_classif_elc = df_cntry_yrs[df_cntry_yrs['Indicator Name']=='Electric power consumption (kWh per capita)']
+df_classif_mr = df_cntry_yrs[df_cntry_yrs['Indicator Name']=='Mortality rate, under-5 (per 1,000 live births)']
+#Filtering to get the data for year 2020
+df_classif_pop = df_classif_pop.loc[:,['Country Name', '2020']]
+df_classif_pop.rename({'2020': 'Population, total 2020'}, axis=1, inplace=True)
+df_classif_co2 = df_classif_co2.loc[:,['Country Name', '2020']]
+df_classif_co2.rename({'2020': 'CO2 emissions 2020'}, axis=1, inplace=True)
+df_classif_elc = df_classif_elc.loc[:,['Country Name', '2020']]
+df_classif_elc.rename({'2020': 'Electric power consumption 2020'}, axis=1, inplace=True)
+df_classif_mr = df_classif_mr.loc[:,['Country Name', '2020']]
+df_classif_mr.rename({'2020': 'Mortality rate, under-5 2020'}, axis=1, inplace=True)
+#Merging 2 dataframes together
+df_merged = pd.merge(df_classif_pop, df_classif_co2, on='Country Name', how='outer')
+df_merged2 = pd.merge(df_merged, df_classif_elc, on='Country Name', how='outer')
+df_merged3 = pd.merge(df_merged2, df_classif_mr, on='Country Name', how='outer')
+df_merged3 = df_merged3.loc[:,['CO2 emissions 2020', 'Population, total 2020', 'Electric power consumption 2020', 'Mortality rate, under-5 2020']]
+
+#Normalize data in dataframe
+df_merged3_norm = norm_df(df_merged3)
+
+pd.plotting.scatter_matrix(df_merged3_norm, figsize=(9.0, 9.0))
+plt.tight_layout() # helps to avoid overlap of labels
+plt.show()
+
+# extract columns for fitting
+df_fit = df_merged3[['CO2 emissions 2020', 'Population, total 2020']].copy()
+# normalise dataframe and inspect result
+df_fit = norm_df(df_fit)
+print(df_fit.describe())
+print()
+
+for n in range(2, 7):
+    # set up kmeans and fit
+    kmeans = cluster.KMeans(n_clusters=n)
+    kmeans.fit(df_fit)
+
+    labels = kmeans.labels_
+    print (n, skmet.silhouette_score(df_fit, labels))
+
+#Good results for 3rd cluster
+
+#Plot for four clusters
+kmeans = cluster.KMeans(n_clusters=4)
+kmeans.fit(df_fit)
+# extract labels and cluster centres
+labels = kmeans.labels_
+cen = kmeans.cluster_centers_
+plt.figure(figsize=(6.0, 6.0))
+
+
+
+plt.scatter(df_fit['CO2 emissions 2020'],df_fit['Population, total 2020'], c=labels, cmap="Accent")
+# colour map Accent selected to increase contrast between colours
+# show cluster centres
+for ic in range(4):
+    xc, yc = cen[ic,:]
+    plt.plot(xc, yc, "dk", markersize=10)
+plt.xlabel("CO2 emissions 2020")
+plt.ylabel("Population, total 2020")
+plt.title("4 clusters")
+plt.show()
+
+
+#-----------------------
+# Plot for five clusters
+kmeans = cluster.KMeans(n_clusters=5)
+kmeans.fit(df_fit)
+# extract labels and cluster centres
+labels = kmeans.labels_
+cen = kmeans.cluster_centers_
+plt.figure(figsize=(6.0, 6.0))
+plt.scatter(df_fit['CO2 emissions 2020'], df_fit['Population, total 2020'], c=labels, cmap="Accent")
+# colour map Accent selected to increase contrast between colours
+# show cluster centres
+for ic in range(5):
+    xc, yc = cen[ic,:]
+    plt.plot(xc, yc, "dk", markersize=10)
+plt.xlabel("CO2 emissions 2020")
+plt.ylabel("Population, total 2020")
+plt.title("5 clusters")
+plt.show()
