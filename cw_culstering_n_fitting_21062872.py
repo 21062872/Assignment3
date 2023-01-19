@@ -130,6 +130,18 @@ def norm(df):
     return df_merged3_norm
 
 def norm_df(df, first=0, last=None):
+    '''
+    Normalize dataframe values
+
+    Parameters
+    ----------
+    df : dataframe object
+
+    Returns
+    -------
+    df_merged3_norm : normalized dataframe
+
+    '''    
     for col in df.columns[first:last]: # excluding the first column
         df[col] = norm(df[col])
     return df    
@@ -204,8 +216,12 @@ cols = ['1990', '1991', '1992',	'1993', '1994', '1995', '1996',
         '2011', '2012', '2013','2014', '2015', '2016', '2017', 
         '2018', '2019', '2020']
 
+#Heatmap of data before removing null values
+sb.heatmap(df_cntry_yrs.isnull())
+
 for i in cols:
     df_cntry_yrs[i].fillna(df_cntry_yrs['raw_avg'], inplace=True)
+
 
 #Filtering for UK's population growth over time series
 df_pop_growth = df_cntry_yrs[df_cntry_yrs['Indicator Name'] == 'Population, total']
@@ -252,11 +268,12 @@ plt.title("Final fit exponential growth")
 plt.show()
 print()
 print('Fit Parameter after p0 suggestion is : ', popt)
-
+'''
 #finding initial approx. of Logistict function
 popt = [57247586, 0.01, 1990]
 df_pop_growth_tp["pop_log"] = logistics(df_pop_growth_tp["Year"], *popt)
 plt.figure()
+plt.style.use("seaborn")
 plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"], label="data")
 plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_log"], label="fit")
 plt.legend()
@@ -267,7 +284,7 @@ plt.show()
 print('Fit Parameter (Logistic is) : ', popt)
 
 popt, covar = opt.curve_fit(logistics, df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"],
-p0=(-1.17898243e+05, 0.01, 1990.0), maxfev=5000)
+p0=(1.17898243e+05, 1, 1990.0), maxfev=5000)
 print("Fit parameter", popt)
 df_pop_growth_tp["pop_log"] = logistics(df_pop_growth_tp["Year"], *popt)
 plt.figure()
@@ -280,15 +297,15 @@ plt.ylabel("population")
 plt.show()
 print('Fit Parameter (Logistic is) : ', popt)
 print('Covariance is ', covar)
-
+'''
 # extract the sigmas from the diagonal of the covariance matrix
 sigma = np.sqrt(np.diag(covar))
 print(sigma)
-low, up = err_ranges(df_pop_growth_tp["Year"], logistics, popt, sigma)
+low, up = err_ranges(df_pop_growth_tp["Year"], exp_growth, popt, sigma)
 plt.figure()
 plt.title("logistics functions")
 plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"], label="data")
-plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_log"], label="fit")
+plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_exp"], label="fit")
 plt.fill_between(df_pop_growth_tp["Year"], low, up, alpha=0.7)
 plt.legend()
 plt.xlabel("year")
@@ -297,11 +314,11 @@ plt.show()
 
 #Giving ranges for predictions
 print("Forcasted population")
-low, up = err_ranges(2030, logistics, popt, sigma)
+low, up = err_ranges(2030, exp_growth, popt, sigma)
 print("2030 between ", low, "and", up)
-low, up = err_ranges(2040, logistics, popt, sigma)
+low, up = err_ranges(2040, exp_growth, popt, sigma)
 print("2040 between ", low, "and", up)
-low, up = err_ranges(2050, logistics, popt, sigma)
+low, up = err_ranges(2050, exp_growth, popt, sigma)
 print("2050 between ", low, "and", up)
 
 #Clustering
@@ -347,10 +364,10 @@ for n in range(2, 7):
     labels = kmeans.labels_
     print (n, skmet.silhouette_score(df_fit, labels))
 
-#Good results for 3rd cluster
+#Good results for 2nd cluster
 
 #Plot for four clusters
-kmeans = cluster.KMeans(n_clusters=4)
+kmeans = cluster.KMeans(n_clusters=3)   
 kmeans.fit(df_fit)
 # extract labels and cluster centres
 labels = kmeans.labels_
@@ -362,30 +379,116 @@ plt.figure(figsize=(6.0, 6.0))
 plt.scatter(df_fit['CO2 emissions 2020'],df_fit['Population, total 2020'], c=labels, cmap="Accent")
 # colour map Accent selected to increase contrast between colours
 # show cluster centres
-for ic in range(4):
+for ic in range(2):
     xc, yc = cen[ic,:]
     plt.plot(xc, yc, "dk", markersize=10)
 plt.xlabel("CO2 emissions 2020")
 plt.ylabel("Population, total 2020")
-plt.title("4 clusters")
+plt.title("2 clusters")
 plt.show()
 
+#Find the clusters of below indicators
+df_clss_elec = df_cntry_yrs[df_cntry_yrs['Indicator Name']=='Electric power consumption (kWh per capita)']
+df_classif_re = df_cntry_yrs[df_cntry_yrs['Indicator Name']=='Electricity production from renewable sources, excluding hydroelectric (% of total)']
+#Filtering to get the data for year 2020
+df_clss_elec = df_clss_elec.loc[:,['Country Name', 'raw_avg']]
+df_clss_elec.rename({'raw_avg': 'Electric power consumption (kWh per capita)'}, axis=1, inplace=True)
+df_classif_re = df_classif_re.loc[:,['Country Name', 'raw_avg']]
+df_classif_re.rename({'raw_avg': 'Electricity production from renewable sources, excluding hydroelectric (% of total)'}, axis=1, inplace=True)
+#Merging 2 dataframes together
+df_merged4 = pd.merge(df_clss_elec, df_classif_re, on='Country Name', how='outer')
 
-#-----------------------
-# Plot for five clusters
-kmeans = cluster.KMeans(n_clusters=5)
-kmeans.fit(df_fit)
+# extract columns for fitting
+df_fit2 = df_merged4[['Electric power consumption (kWh per capita)', 'Electricity production from renewable sources, excluding hydroelectric (% of total)']].copy()
+# normalise dataframe and inspect result
+df_fit2 = norm_df(df_fit2)
+print(df_fit2.describe())
+print()
+
+for n in range(2, 7):
+    # set up kmeans and fit
+    kmeans = cluster.KMeans(n_clusters=n)
+    kmeans.fit(df_fit2)
+
+    labels = kmeans.labels_
+    print (n, skmet.silhouette_score(df_fit2, labels))
+
+#Good results for 2nd cluster
+
+#Plot for four clusters
+kmeans = cluster.KMeans(n_clusters=3)   
+kmeans.fit(df_fit2)
 # extract labels and cluster centres
 labels = kmeans.labels_
 cen = kmeans.cluster_centers_
 plt.figure(figsize=(6.0, 6.0))
-plt.scatter(df_fit['CO2 emissions 2020'], df_fit['Population, total 2020'], c=labels, cmap="Accent")
+plt.scatter(df_fit2['Electric power consumption (kWh per capita)'],df_fit2['Electricity production from renewable sources, excluding hydroelectric (% of total)'], c=labels, cmap="Accent")
 # colour map Accent selected to increase contrast between colours
 # show cluster centres
-for ic in range(5):
+for ic in range(2):
     xc, yc = cen[ic,:]
     plt.plot(xc, yc, "dk", markersize=10)
-plt.xlabel("CO2 emissions 2020")
-plt.ylabel("Population, total 2020")
-plt.title("5 clusters")
+plt.xlabel("Electric power consumption (kWh per capita) avg per year")
+plt.ylabel("Electricity production from renewable sources, excluding hydroelectric (% of total)")
+plt.title("2 clusters")
+plt.show()
+
+''' Plot: 1
+    Plot type: Bar chart
+    Plot name: Urban Population Over Time'''
+#Replace NaN values with preceding row value
+df_cntry_yrs = df_cntry_yrs.fillna(method='ffill', axis=1)
+
+#Select data in 5 year intervals 
+df_cntry_ind_hdr = df_cntry_yrs.iloc[:,[0,1]]
+df_yrs_five_intr = df_cntry_yrs.iloc[:,2::5]
+df_fnl = pd.concat([df_cntry_ind_hdr,df_yrs_five_intr], axis=1)
+
+#Rename countries with shortnames for better clarity of labels
+df_fnl.replace("United Kingdom", "UK", inplace=True)
+df_fnl.replace("United States", "USA", inplace=True)
+df_fnl.replace("South Africa", "SA", inplace=True)
+df_fnl.replace("Korea, Rep.", "Korea", inplace=True)
+    
+#Plot bar chart against indicator Urban population
+df_urbn_pop = df_fnl[df_fnl['Indicator Name'] == 'Urban population']
+
+# plotting graph
+plt.figure(figsize=(8, 6), dpi=80)
+plt.style.use('ggplot')
+# plot grouped bar chart
+df_urbn_pop.plot(x='Country Name',
+                kind='bar',
+                stacked=False,
+                title='Urban Population Over Time')
+# labeling the graph
+plt.xlabel('Country')
+plt.ylabel('Number of population')
+
+plt.legend(title ="Years")
+plt.show()
+
+''' Plot: 7
+    Plot type: correlation heatmap
+    Plot name: correlation heatmap of United Kingdom'''
+df_cor = df_cntry_yrs[df_cntry_yrs['Country Name'] == 'United Kingdom']
+indecators_cls = ['Electric power consumption (kWh per capita)'
+,'CO2 emissions (kg per PPP $ of GDP)'
+,'Population growth (annual %)'
+,'gender parity index (GPI)'
+,'Agriculture, forestry, and fishing, value added (% of GDP)'
+,'Electricity production from oil sources (% of total)'
+,'Renewable electricity output (% of total electricity output)'
+,'Agricultural land (% of land area)']
+df_cor = df_cor[df_cor['Indicator Name'].isin(indecators_cls)]
+df_cor2 = df_cor.loc[:,['Indicator Name', '1990', '1995', '2000', '2005', '2010', '2015', '2020']]
+df_cor3 = df_cor2.set_index('Indicator Name').transpose()
+
+df_cor3 = df_cor3.astype(str).astype(float)    
+print(df_cor3.corr())
+#print (df_cor3.dtypes)
+
+# plotting correlation heatmap
+dataplot = sb.heatmap(df_cor3.corr(), cmap="viridis", annot=True)
+# displaying heatmap
 plt.show()
