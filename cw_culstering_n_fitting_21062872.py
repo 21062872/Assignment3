@@ -12,6 +12,22 @@ import seaborn as sb
 import scipy.stats as stats
 import scipy.optimize as opt
 
+def exp_growth(t, scale, growth):
+    '''
+    Computes exponential function with scale and growth
+
+    '''
+    f = scale * np.exp(growth * (t-1950))
+    return f
+
+def logistics(t, scale, growth, t0):
+    """ Computes logistics function with scale, growth and time of 
+        the turning point
+    
+    """
+    f = scale / (1.0 + np.exp(-growth * (t - t0)))
+    return f
+
 def read_external_files(filename):
     '''
     Read an external file and load into a dataframe, create another dataframe 
@@ -52,7 +68,9 @@ df_countries = df_climt_chg[df_climt_chg['Country Name'].isin(countries)]
 #Select records for specific indicators
 indecators = [ 'Urban population (% of total population)' \
                 ,'Urban population growth (annual %)' \
+                ,'Urban population' \
                 ,'Population growth (annual %)' \
+                ,'Population, total' \
                 ,'Mortality rate, under-5 (per 1,000 live births)' \
                 ,'School enrollment, primary and secondary (gross)' \
                 ,'gender parity index (GPI)' \
@@ -84,9 +102,7 @@ indecators = [ 'Urban population (% of total population)' \
                 ,'Agricultural irrigated land (% of total agricultural land)' \
                 ,'Forest area (% of land area)' \
                 ,'Arable land (% of land area)' \
-                ,'Agricultural land (% of land area)' \
-                ,'Urban population (% of total population)' \
-                ,'Urban population growth (annual %)'
+                ,'Agricultural land (% of land area)'
             ]
 df_cntry_ind = df_countries[df_countries['Indicator Name'].isin(indecators)]
 
@@ -113,3 +129,75 @@ cols = ['1990', '1991', '1992',	'1993', '1994', '1995', '1996',
 
 for i in cols:
     df_cntry_yrs[i].fillna(df_cntry_yrs['raw_avg'], inplace=True)
+
+#Filtering for UK's population growth over time series
+df_pop_growth = df_cntry_yrs[df_cntry_yrs['Indicator Name'] == 'Population, total']
+df_pop_growth = df_pop_growth[df_pop_growth['Country Name'] == 'United Kingdom']
+df_pop_growth = df_pop_growth.loc[:,['Country Name', '1990', '1991', '1992',	'1993', '1994', '1995', '1996', 
+                                    '1997', '1998', '1999','2000', '2001', '2002', '2003', 
+                                    '2004', '2005', '2006','2007', '2008', '2009', '2010',
+                                    '2011', '2012', '2013','2014', '2015', '2016', '2017', 
+                                    '2018', '2019', '2020']]
+df_pop_growth_tp = df_pop_growth.set_index('Country Name').transpose()
+df_pop_growth_tp['Year'] = df_pop_growth_tp.index.astype(str).astype(int)
+
+# fit exponential growth
+popt, covar = opt.curve_fit(exp_growth, df_pop_growth_tp["Year"],
+                                      df_pop_growth_tp["United Kingdom"])
+print('Fit Parameter is : ', popt)
+
+# plot first fit attempt
+df_pop_growth_tp["pop_exp"] = exp_growth(df_pop_growth_tp["Year"], *popt)
+plt.figure()
+plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"], label="data")
+plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_exp"], label="fit")
+plt.legend()
+plt.title("First fit attempt")
+plt.xlabel("year")
+plt.ylabel("Total Population")
+plt.show()
+print()
+
+# fit exponential growth giving a smaller expo factor 
+popt, covar = opt.curve_fit(exp_growth, df_pop_growth_tp["Year"],
+                            df_pop_growth_tp["United Kingdom"], p0=[57247586.0, 0.01])
+# much better
+print("Fit parameter", popt)
+df_pop_growth_tp["pop_exp"] = exp_growth(df_pop_growth_tp["Year"], *popt)
+plt.figure()
+plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"], label="data")
+plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_exp"], label="fit")
+plt.legend()
+plt.xlabel("year")
+plt.ylabel("population")
+plt.title("Final fit exponential growth")
+plt.show()
+print()
+print('Fit Parameter after p0 suggestion is : ', popt)
+
+#finding initial approx. of Logistict function
+popt = [57247586, 0.01, 1990]
+df_pop_growth_tp["pop_log"] = logistics(df_pop_growth_tp["Year"], *popt)
+plt.figure()
+plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"], label="data")
+plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_log"], label="fit")
+plt.legend()
+plt.xlabel("year")
+plt.ylabel("population")
+plt.title("Improved start value")
+plt.show()
+print('Fit Parameter (Logistic is) : ', popt)
+
+popt, covar = opt.curve_fit(logistics, df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"],
+p0=(57247586.0, 0.01, 1990), maxfev=5000)
+print("Fit parameter", popt)
+df_pop_growth_tp["pop_log"] = logistics(df_pop_growth_tp["Year"], *popt)
+plt.figure()
+plt.title("logistics function")
+plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"], label="data")
+plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_log"], label="fit")
+plt.legend()
+plt.xlabel("year")
+plt.ylabel("population")
+plt.show()
+print('Fit Parameter (Logistic is) : ', popt)
