@@ -268,36 +268,7 @@ plt.title("Final fit exponential growth")
 plt.show()
 print()
 print('Fit Parameter after p0 suggestion is : ', popt)
-'''
-#finding initial approx. of Logistict function
-popt = [57247586, 0.01, 1990]
-df_pop_growth_tp["pop_log"] = logistics(df_pop_growth_tp["Year"], *popt)
-plt.figure()
-plt.style.use("seaborn")
-plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"], label="data")
-plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_log"], label="fit")
-plt.legend()
-plt.xlabel("year")
-plt.ylabel("population")
-plt.title("Improved start value")
-plt.show()
-print('Fit Parameter (Logistic is) : ', popt)
 
-popt, covar = opt.curve_fit(logistics, df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"],
-p0=(1.17898243e+05, 1, 1990.0), maxfev=5000)
-print("Fit parameter", popt)
-df_pop_growth_tp["pop_log"] = logistics(df_pop_growth_tp["Year"], *popt)
-plt.figure()
-plt.title("logistics function")
-plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"], label="data")
-plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_log"], label="fit")
-plt.legend()
-plt.xlabel("year")
-plt.ylabel("population")
-plt.show()
-print('Fit Parameter (Logistic is) : ', popt)
-print('Covariance is ', covar)
-'''
 # extract the sigmas from the diagonal of the covariance matrix
 sigma = np.sqrt(np.diag(covar))
 print(sigma)
