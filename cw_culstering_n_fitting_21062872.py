@@ -144,7 +144,7 @@ def norm_df(df, first=0, last=None):
     '''    
     for col in df.columns[first:last]: # excluding the first column
         df[col] = norm(df[col])
-    return df    
+    return df  
 
 #Executing the function to load external file to dataframe     
 df_climt_chg, df_climt_chg_tp = read_external_files('API_19_DS2_en_csv_v2_4773766.csv')  
@@ -455,7 +455,7 @@ df_urbn_pop = df_fnl[df_fnl['Indicator Name'] == 'Urban population']
 
 # plotting graph
 plt.figure(figsize=(8, 6), dpi=80)
-plt.style.use('ggplot')
+plt.style.use('bmh')
 # plot grouped bar chart
 df_urbn_pop.plot(x='Country Name',
                 kind='bar',
@@ -489,6 +489,6 @@ print(df_cor3.corr())
 #print (df_cor3.dtypes)
 
 # plotting correlation heatmap
-dataplot = sb.heatmap(df_cor3.corr(), cmap="viridis", annot=True)
+dataplot = sb.heatmap(df_cor3.corr(), cmap="cividis", annot=True)
 # displaying heatmap
 plt.show()
