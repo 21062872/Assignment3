@@ -303,7 +303,7 @@ sigma = np.sqrt(np.diag(covar))
 print(sigma)
 low, up = err_ranges(df_pop_growth_tp["Year"], exp_growth, popt, sigma)
 plt.figure()
-plt.title("logistics functions")
+plt.title("Lower and upper limits of confidence range")
 plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["United Kingdom"], label="data")
 plt.plot(df_pop_growth_tp["Year"], df_pop_growth_tp["pop_exp"], label="fit")
 plt.fill_between(df_pop_growth_tp["Year"], low, up, alpha=0.7)
@@ -451,7 +451,7 @@ df_fnl.replace("South Africa", "SA", inplace=True)
 df_fnl.replace("Korea, Rep.", "Korea", inplace=True)
     
 #Plot bar chart against indicator Urban population
-df_urbn_pop = df_fnl[df_fnl['Indicator Name'] == 'Urban population']
+df_urbn_pop = df_fnl[df_fnl['Indicator Name'] == 'CO2 emissions (kg per PPP $ of GDP)']
 
 # plotting graph
 plt.figure(figsize=(8, 6), dpi=80)
@@ -460,10 +460,10 @@ plt.style.use('bmh')
 df_urbn_pop.plot(x='Country Name',
                 kind='bar',
                 stacked=False,
-                title='Urban Population Over Time')
+                title='CO2 emissions (kg per PPP $ of GDP) Over Time')
 # labeling the graph
 plt.xlabel('Country')
-plt.ylabel('Number of population')
+plt.ylabel('CO2 emissions (kg per PPP $ of GDP)')
 
 plt.legend(title ="Years")
 plt.show()
