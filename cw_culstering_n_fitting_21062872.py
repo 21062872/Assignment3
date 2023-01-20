@@ -9,7 +9,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import seaborn as sb
-import scipy.stats as stats
 import scipy.optimize as opt
 import sklearn.cluster as cluster
 import sklearn.metrics as skmet
@@ -337,15 +336,13 @@ for n in range(2, 7):
 
 #Good results for 2nd cluster
 
-#Plot for four clusters
+#Plot for three clusters
 kmeans = cluster.KMeans(n_clusters=3)   
 kmeans.fit(df_fit)
 # extract labels and cluster centres
 labels = kmeans.labels_
 cen = kmeans.cluster_centers_
 plt.figure(figsize=(6.0, 6.0))
-
-
 
 plt.scatter(df_fit['CO2 emissions 2020'],df_fit['Population, total 2020'], c=labels, cmap="Accent")
 # colour map Accent selected to increase contrast between colours
